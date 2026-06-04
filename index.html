@@ -225,6 +225,9 @@
   .day-cell.today { border-color: var(--accent); }
   .day-cell.past { opacity: 0.5; }
   .day-cell.done { border-color: #2a3a1a; }
+  .day-cell { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .day-cell:hover { border-color: var(--accent2) !important; background: rgba(96,200,240,0.04); }
+  .day-cell.selected-day { border-color: var(--accent2) !important; background: rgba(96,200,240,0.07); }
 
   .day-label {
     font-family: 'DM Mono', monospace;
@@ -603,6 +606,19 @@
           <div class="note-text" style="margin-top:8px">
             Schedule auto-adapts to maintain rules. Grey = past · Green outline = today · ✓ = completed · — = rest
           </div>
+
+          <!-- DAY DETAIL PANEL -->
+          <div id="dayDetail" style="display:none;margin-top:16px;background:var(--surface2);border:1px solid var(--border);padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+              <div>
+                <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;" id="ddWeekday">—</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;line-height:1;" id="ddDate">—</div>
+              </div>
+              <button onclick="closeDayDetail()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:4px;">✕</button>
+            </div>
+            <div id="ddWorkoutBadge" style="margin-bottom:12px;"></div>
+            <div id="ddBody"></div>
+          </div>
         </div>
 
         <!-- LOG TAB -->
@@ -661,12 +677,23 @@ let currentWeekOffset = 0;
 // ===== INIT =====
 function init() {
   loadState();
+
+  // Seed June 5th 2025 as the first Long Run if nothing logged yet
+  const SEED_DATE = '2025-06-05';
+  if (!state.log.length) {
+    if (!state.schedule.some(e => e.date === SEED_DATE)) {
+      state.schedule.push({ date: SEED_DATE, workout: 'Long Run' });
+    }
+  }
+
+  if (!state.schedule.length || state.schedule.filter(e => e.date >= today()).length < 7) {
+    generateSchedule();
+  }
+
   renderToday();
   renderScheduleWeek();
   renderLog();
   renderStats();
-  if (!state.schedule.length) generateSchedule();
-  renderScheduleWeek();
 }
 
 // ===== PERSISTENCE =====
@@ -694,16 +721,26 @@ function saveSettings() {
 
 // ===== DATE HELPERS =====
 function today() {
-  const d = new Date();
-  return dateStr(d);
+  return localDateStr(new Date());
+}
+
+function localDateStr(d) {
+  // Use local date parts to avoid UTC offset shifting the date
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
 }
 
 function dateStr(d) {
-  return d.toISOString().slice(0,10);
+  // Keep for compatibility but use local date
+  return localDateStr(d);
 }
 
 function parseDate(s) {
-  return new Date(s + 'T00:00:00');
+  // Parse as local midnight, not UTC
+  const [y, m, day] = s.split('-').map(Number);
+  return new Date(y, m - 1, day);
 }
 
 function addDays(s, n) {
@@ -952,7 +989,7 @@ function getScheduledWorkout(date) {
 function generateSchedule() {
   // Build a 28-day rolling schedule from tomorrow (or from first day with no log)
   const t = today();
-  
+
   // Get completed days
   const completed = new Set(state.log.map(e => e.date));
   
@@ -995,6 +1032,10 @@ function generateSchedule() {
     recentDays.push({ date: e.date, workout: e.workout });
   }
   
+  // Preserve any pinned/seeded future entries (e.g. June 5th Long Run seed)
+  const pinnedFuture = state.schedule.filter(e => e.date >= t && !completed.has(e.date));
+  const pinnedDates = new Set(pinnedFuture.map(e => e.date));
+
   for (let i = 0; i < 28; i++) {
     const d = addDays(t, i);
     if (completed.has(d)) {
@@ -1002,7 +1043,15 @@ function generateSchedule() {
       recentDays.push({ date: d, workout: logEntry.workout });
       continue;
     }
-    
+
+    // If this date is already pinned in the schedule, honour it
+    if (pinnedDates.has(d)) {
+      const pinned = pinnedFuture.find(e => e.date === d);
+      schedDays.push(pinned);
+      recentDays.push({ date: d, workout: pinned.workout });
+      continue;
+    }
+
     // Try to assign a workout for this day
     const candidate = pickWorkout(d, recentDays);
     if (candidate) {
@@ -1010,10 +1059,8 @@ function generateSchedule() {
       recentDays.push({ date: d, workout: candidate });
     }
   }
-  
-  // Merge: keep past + replace future
-  const future = newSchedule.filter(e => e.date >= t && !completed.has(e.date));
-  // Replace future schedule
+
+  // Replace future schedule (past entries preserved via pastSchedule)
   state.schedule = [...pastSchedule, ...schedDays];
 }
 
@@ -1096,6 +1143,99 @@ function pickWorkout(date, context) {
   return candidates[0];
 }
 
+// ===== DAY DETAIL =====
+function showDayDetail(ds) {
+  // Highlight selected cell
+  document.querySelectorAll('[data-ds]').forEach(c => {
+    c.classList.toggle('selected-day', c.dataset.ds === ds);
+  });
+
+  const logEntry = state.log.find(e => e.date === ds);
+  const sched = getScheduledWorkout(ds);
+  const workout = logEntry ? logEntry.workout : (sched || null);
+  const isCompleted = !!logEntry && logEntry.workout !== 'Rest';
+  const isRestDay = !workout || workout === 'Rest';
+  const t = today();
+
+  document.getElementById('dayDetail').style.display = 'block';
+  document.getElementById('ddDate').textContent = formatDate(ds);
+  document.getElementById('ddWeekday').textContent = getWeekday(ds);
+
+  // Badge
+  const badgeEl = document.getElementById('ddWorkoutBadge');
+  const cls = workout ? workoutClass(workout) : 'rest';
+  const statusLabel = isCompleted ? ' <span style="color:var(--accent);font-size:9px">✓ COMPLETED</span>' : (ds < t && !isCompleted && !isRestDay ? ' <span style="color:var(--accent3);font-size:9px">✗ MISSED</span>' : '');
+  badgeEl.innerHTML = workout
+    ? `<span class="badge ${cls}" style="font-size:11px;padding:4px 10px;">${workout.toUpperCase()}</span>${statusLabel}`
+    : `<span class="badge rest" style="font-size:11px;padding:4px 10px;">REST DAY</span>`;
+
+  // Body
+  const bodyEl = document.getElementById('ddBody');
+  let html = '';
+
+  if (isRestDay) {
+    html = `<div class="note-text">No workout scheduled — enjoy your rest.</div>`;
+  } else if (RUN_TYPES.includes(workout)) {
+    const intervals = calculateNextIntervals(workout);
+
+    if (workout === 'Long Run') {
+      if (isCompleted && logEntry.runInterval) {
+        html += detailRow('Run interval', logEntry.runInterval.toFixed(1) + ' min');
+        html += detailRow('Walk interval', logEntry.walkInterval ? logEntry.walkInterval.toFixed(1) + ' min' : '—');
+        html += detailRow('Distance', logEntry.distance ? logEntry.distance.toFixed(2) + ' km' : '—');
+      } else {
+        html += `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:10px;letter-spacing:0.5px;">INTERVAL TARGETS</div>`;
+        html += detailRow('Run interval', intervals.run ? intervals.run.toFixed(1) + ' min' : '6.0 min (first run)');
+        html += detailRow('Walk interval', intervals.walk ? intervals.walk.toFixed(1) + ' min' : '3.0 min (first run)');
+        html += detailRow('Distance', 'No target — log what you cover');
+      }
+    } else {
+      // Short or Medium
+      const longRunsWithDist = state.log.filter(e => e.workout === 'Long Run' && e.distance);
+      const lastLong = longRunsWithDist[longRunsWithDist.length - 1];
+      if (isCompleted) {
+        html += detailRow('Distance covered', logEntry.distance ? logEntry.distance.toFixed(2) + ' km' : '—');
+        if (logEntry.notes) html += detailRow('Notes', logEntry.notes);
+      } else {
+        if (lastLong) {
+          const factor = workout === 'Short Run' ? 0.25 : 0.5;
+          const target = lastLong.distance * factor;
+          html += `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:10px;letter-spacing:0.5px;">DISTANCE TARGET</div>`;
+          html += detailRow('Target distance', target.toFixed(2) + ' km');
+          html += detailRow('Based on long run', formatDate(lastLong.date) + ' (' + lastLong.distance.toFixed(2) + ' km)');
+        } else {
+          html += `<div class="note-text">Complete a Long Run first to set your distance targets.</div>`;
+        }
+      }
+    }
+    if (isCompleted && logEntry.notes) {
+      html += detailRow('Notes', logEntry.notes);
+    }
+  } else {
+    // Strength
+    if (isCompleted) {
+      html += detailRow('Logged', '✓');
+      if (logEntry.notes) html += detailRow('Notes', logEntry.notes);
+    } else {
+      html += `<div class="note-text">Strength session — no specific targets.</div>`;
+    }
+  }
+
+  bodyEl.innerHTML = html;
+}
+
+function detailRow(label, value) {
+  return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;">
+    <span style="font-size:10px;color:var(--muted);letter-spacing:0.5px;">${label.toUpperCase()}</span>
+    <span style="font-size:12px;color:var(--text);">${value}</span>
+  </div>`;
+}
+
+function closeDayDetail() {
+  document.getElementById('dayDetail').style.display = 'none';
+  document.querySelectorAll('.day-cell').forEach(c => c.classList.remove('selected-day'));
+}
+
 // ===== RENDER ALL =====
 function renderAll() {
   renderToday();
@@ -1132,6 +1272,7 @@ function renderScheduleWeek() {
     
     const cell = document.createElement('div');
     cell.className = 'day-cell' + (isToday ? ' today' : '') + (isPast ? ' past' : '');
+    cell.dataset.ds = ds;
     
     let workoutText = '', workoutClass_ = 'rest';
     if (logEntry) {
@@ -1150,6 +1291,7 @@ function renderScheduleWeek() {
       <div class="day-num">${d.getDate()}</div>
       <div class="day-workout ${workoutClass_}">${workoutText}</div>
     `;
+    cell.addEventListener('click', () => showDayDetail(ds));
     container.appendChild(cell);
   }
   
