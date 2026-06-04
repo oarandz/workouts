@@ -1399,33 +1399,63 @@ function toggleSettings() {
 }
 
 // ===== GOOGLE SHEETS =====
-async function syncToSheets() {
+function syncToSheets() {
   const { webAppUrl } = state.settings;
   if (!webAppUrl) return;
 
   setSyncStatus('syncing', 'SYNCING...');
 
   try {
-    const rows = state.log.sort((a,b) => a.date.localeCompare(b.date)).map(e => [
-      e.date, e.workout,
-      e.runInterval ?? '', e.walkInterval ?? '',
-      e.distance ?? '', e.notes ?? '',
-      e.scheduled ?? '', e.unscheduled ? 'Yes' : 'No'
-    ]);
+    const rows = state.log
+      .slice()
+      .sort((a,b) => a.date.localeCompare(b.date))
+      .map(e => [
+        e.date, e.workout,
+        e.runInterval ?? '', e.walkInterval ?? '',
+        e.distance ?? '', e.notes ?? '',
+        e.scheduled ?? '', e.unscheduled ? 'Yes' : 'No'
+      ]);
 
     const payload = JSON.stringify({ action: 'sync', rows });
 
-    // Apps Script doesn't support CORS preflight, so we use no-cors with
-    // a plain text body. The request goes through; we just can't read the response.
-    await fetch(webAppUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: payload,
-    });
+    // Apps Script blocks CORS preflight. Workaround: submit via a hidden iframe form.
+    // The iframe catches the redirect response so the page doesn't navigate.
+    // We encode the payload as a form field so e.parameter.payload arrives in doPost.
+    let iframe = document.getElementById('_gsIframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.name = '_gsIframe';
+      iframe.id = '_gsIframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
 
-    // With no-cors we can't read the response — assume success if no network error
-    setSyncStatus('ok', 'SYNCED');
+    // Track when iframe finishes loading (= response received)
+    iframe.onload = () => {
+      setSyncStatus('ok', 'SYNCED');
+    };
+    iframe.onerror = () => {
+      setSyncStatus('err', 'SYNC FAILED');
+    };
+
+    let form = document.getElementById('_gsForm');
+    if (form) form.remove();
+    form = document.createElement('form');
+    form.id = '_gsForm';
+    form.method = 'POST';
+    form.action = webAppUrl;
+    form.target = '_gsIframe';
+    form.style.display = 'none';
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = payload;
+    form.appendChild(input);
+
+    document.body.appendChild(form);
+    form.submit();
+
   } catch(e) {
     setSyncStatus('err', 'SYNC FAILED');
     console.error('Sheets sync error:', e);
@@ -1437,18 +1467,18 @@ function testConnection() {
   if (!webAppUrl) { alert('Please enter your Web App URL first.'); return; }
   setSyncStatus('syncing', 'TESTING...');
 
-  // Use JSONP-style script injection for the GET — this sidesteps CORS entirely
+  // JSONP GET to test the connection — sidesteps CORS entirely
   const callbackName = 'formTestCallback_' + Date.now();
   const script = document.createElement('script');
   const timeout = setTimeout(() => {
     setSyncStatus('err', 'TIMEOUT — CHECK URL');
-    document.body.removeChild(script);
+    if (document.body.contains(script)) document.body.removeChild(script);
     delete window[callbackName];
   }, 8000);
 
   window[callbackName] = function(data) {
     clearTimeout(timeout);
-    document.body.removeChild(script);
+    if (document.body.contains(script)) document.body.removeChild(script);
     delete window[callbackName];
     if (data && data.ok) setSyncStatus('ok', 'CONNECTED');
     else setSyncStatus('err', 'FAILED — CHECK SHEET');
