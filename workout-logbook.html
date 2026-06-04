@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FORM — Workout Logbook</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #c8f060;
+    --accent2: #60c8f0;
+    --accent3: #f06090;
+    --text: #e8e8e8;
+    --muted: #666;
+    --run-color: #60c8f0;
+    --strength-color: #c8f060;
+    --rest-color: #444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 4px;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--muted); font-size: 12px; font-family: 'DM Mono', monospace; letter-spacing: 2px; margin-left: 12px; vertical-align: middle; }
+
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 500; }
+  .btn.primary:hover { background: #b0d840; }
+  .btn.danger { border-color: var(--accent3); color: var(--accent3); }
+  .btn.danger:hover { background: var(--accent3); color: #000; }
+
+  /* LAYOUT */
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  .grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; }
+
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  /* PANELS */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+  }
+
+  .panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* TODAY PANEL */
+  .today-date {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    line-height: 1;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .today-weekday {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  .scheduled-workout {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .sw-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .sw-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+  }
+  .sw-name.run { color: var(--run-color); }
+  .sw-name.strength { color: var(--strength-color); }
+  .sw-name.rest { color: var(--rest-color); }
+
+  .interval-display {
+    margin-top: 12px;
+    padding: 10px;
+    background: var(--bg);
+    border-left: 2px solid var(--run-color);
+  }
+  .interval-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    padding: 2px 0;
+  }
+  .interval-row .val { color: var(--run-color); font-weight: 500; }
+  .interval-row.dist .val { color: var(--accent); }
+
+  /* WORKOUT SELECT */
+  .workout-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .workout-option {
+    padding: 10px 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .workout-option:hover { border-color: var(--text); color: var(--text); }
+  .workout-option.selected { border-color: var(--accent); color: var(--accent); background: rgba(200,240,96,0.06); }
+  .workout-option.run-type { }
+  .workout-option.run-type.selected { border-color: var(--run-color); color: var(--run-color); background: rgba(96,200,240,0.06); }
+
+  /* FORM ELEMENTS */
+  .form-group { margin-bottom: 12px; }
+  .form-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: block;
+  }
+  input[type="number"], input[type="text"], input[type="date"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus { border-color: var(--accent); }
+
+  .inline-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* SCHEDULE PANEL */
+  .schedule-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+
+  .day-cell {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 10px 6px;
+    text-align: center;
+    position: relative;
+  }
+  .day-cell.today { border-color: var(--accent); }
+  .day-cell.past { opacity: 0.5; }
+  .day-cell.done { border-color: #2a3a1a; }
+
+  .day-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .day-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .day-cell.today .day-num { color: var(--accent); }
+
+  .day-workout {
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.5px;
+    padding: 2px 3px;
+    line-height: 1.3;
+  }
+  .day-workout.run { color: var(--run-color); }
+  .day-workout.strength { color: var(--strength-color); }
+  .day-workout.rest { color: var(--rest-color); }
+  .day-workout.done { color: #4a6a2a; }
+  .day-workout.missed { color: var(--accent3); text-decoration: line-through; }
+
+  /* LOG TABLE */
+  .log-table { width: 100%; border-collapse: collapse; }
+  .log-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  .log-table td {
+    padding: 8px 8px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    vertical-align: middle;
+  }
+  .log-table tr:hover td { background: var(--surface2); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .badge.run { background: rgba(96,200,240,0.15); color: var(--run-color); border: 1px solid rgba(96,200,240,0.3); }
+  .badge.strength { background: rgba(200,240,96,0.1); color: var(--strength-color); border: 1px solid rgba(200,240,96,0.25); }
+  .badge.rest { background: rgba(100,100,100,0.1); color: var(--muted); border: 1px solid var(--border); }
+
+  /* STATS */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 600px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+
+  .stat-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 14px;
+  }
+  .stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    display: none;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    color: var(--accent);
+  }
+
+  /* SETTINGS */
+  .settings-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .settings-panel.open { display: block; }
+
+  /* SYNC STATUS */
+  .sync-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sync-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .sync-dot.ok { background: var(--accent); }
+  .sync-dot.err { background: var(--accent3); }
+  .sync-dot.syncing { background: var(--accent2); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* RULE ALERT */
+  .rule-alert {
+    padding: 10px 12px;
+    border-left: 2px solid var(--accent3);
+    background: rgba(240,96,144,0.06);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--accent3);
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    display: none;
+  }
+
+  /* TABS */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  .week-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .week-nav button { background: none; border: 1px solid var(--border); color: var(--muted); cursor: pointer; padding: 4px 10px; font-family: 'DM Mono', monospace; font-size: 11px; }
+  .week-nav button:hover { border-color: var(--text); color: var(--text); }
+  .week-nav .week-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 1px; flex: 1; text-align: center; }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 8px 10px;
+    outline: none;
+    cursor: pointer;
+  }
+  select:focus { border-color: var(--accent); }
+
+  .note-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">FORM <span>WORKOUT LOG</span></div>
+  <div class="header-actions">
+    <div class="sync-status" id="syncStatus">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncText">NOT CONNECTED</span>
+    </div>
+    <button class="btn" onclick="toggleSettings()">⚙ SETTINGS</button>
+  </div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div class="container">
+<div class="settings-panel" id="settingsPanel">
+  <div class="panel-title">Google Sheets Integration</div>
+  <div class="form-group">
+    <label class="form-label">Web App URL</label>
+    <input type="text" id="webAppUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveSettings()" style="font-size:11px;">
+  </div>
+  <div class="note-text">
+    Paste your Google Apps Script Web App URL above. All workout data syncs automatically on each log entry.
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn primary" onclick="testConnection()">TEST CONNECTION</button>
+    <button class="btn" onclick="syncToSheets()">SYNC NOW</button>
+    <button class="btn danger" onclick="clearAllData()">CLEAR ALL LOCAL DATA</button>
+  </div>
+</div>
+</div>
+
+<div class="container">
+  <div class="grid">
+
+    <!-- LEFT: TODAY -->
+    <div>
+      <div class="panel">
+        <div class="today-date" id="todayDate">—</div>
+        <div class="today-weekday" id="todayWeekday">—</div>
+
+        <div class="scheduled-workout" id="scheduledWorkoutBox">
+          <div class="sw-label">SCHEDULED TODAY</div>
+          <div class="sw-name rest" id="scheduledName">REST DAY</div>
+        </div>
+
+        <div class="interval-display" id="intervalDisplay" style="display:none">
+          <div class="interval-row">
+            <span>RUN INTERVAL</span>
+            <span class="val" id="intRun">—</span>
+          </div>
+          <div class="interval-row">
+            <span>WALK INTERVAL</span>
+            <span class="val" id="intWalk">—</span>
+          </div>
+          <div class="interval-row dist">
+            <span>TARGET DIST</span>
+            <span class="val" id="intDist">—</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="panel-title">LOG TODAY'S SESSION</div>
+
+        <div class="form-group">
+          <label class="form-label">Workout</label>
+          <div class="workout-grid" id="workoutGrid">
+            <button class="workout-option run-type" data-w="Long Run" onclick="selectWorkout(this)">LONG RUN</button>
+            <button class="workout-option run-type" data-w="Medium Run" onclick="selectWorkout(this)">MEDIUM RUN</button>
+            <button class="workout-option run-type" data-w="Short Run" onclick="selectWorkout(this)">SHORT RUN</button>
+            <button class="workout-option" data-w="Legs" onclick="selectWorkout(this)">LEGS</button>
+            <button class="workout-option" data-w="Upper 1" onclick="selectWorkout(this)">UPPER 1</button>
+            <button class="workout-option" data-w="Upper 2" onclick="selectWorkout(this)">UPPER 2</button>
+          </div>
+        </div>
+
+        <div class="rule-alert" id="ruleAlert"></div>
+
+        <!-- Run specific fields -->
+        <div id="runFields" style="display:none">
+          <div class="panel-title">ACTUAL INTERVALS</div>
+          <div class="inline-inputs" style="margin-bottom:8px">
+            <div class="form-group">
+              <label class="form-label">Run Interval (min)</label>
+              <input type="number" id="actualRun" placeholder="6" step="0.1" min="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Walk Interval (min)</label>
+              <input type="number" id="actualWalk" placeholder="3" step="0.1" min="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Total Distance (km)</label>
+            <input type="number" id="actualDist" placeholder="0.0" step="0.1" min="0">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notes (optional)</label>
+          <input type="text" id="sessionNotes" placeholder="How did it feel?">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="btn primary" onclick="logWorkout()">LOG WORKOUT</button>
+          <button class="btn" onclick="logRest()">REST DAY</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SCHEDULE + LOG -->
+    <div>
+      <!-- STATS -->
+      <div class="stats-row" id="statsRow">
+        <div class="stat-box">
+          <div class="stat-val" id="statTotal">0</div>
+          <div class="stat-label">Total Sessions</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="statStreak">0</div>
+          <div class="stat-label">Day Streak</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="statDist">0</div>
+          <div class="stat-label">Total KM</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="statRuns">0</div>
+          <div class="stat-label">Total Runs</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('schedule')">SCHEDULE</div>
+          <div class="tab" onclick="switchTab('log')">LOG</div>
+        </div>
+
+        <!-- SCHEDULE TAB -->
+        <div class="tab-content active" id="tab-schedule">
+          <div class="week-nav">
+            <button onclick="shiftWeek(-1)">◀ PREV</button>
+            <div class="week-label" id="weekLabel">—</div>
+            <button onclick="shiftWeek(1)">NEXT ▶</button>
+          </div>
+          <div class="schedule-week" id="scheduleWeek"></div>
+          <div class="note-text" style="margin-top:8px">
+            Schedule auto-adapts to maintain rules. Grey = past · Green outline = today · ✓ = completed · — = rest
+          </div>
+        </div>
+
+        <!-- LOG TAB -->
+        <div class="tab-content" id="tab-log">
+          <div id="logTableWrap">
+            <div class="empty-state" id="emptyLog">No sessions logged yet.</div>
+            <table class="log-table" id="logTable" style="display:none">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Workout</th>
+                  <th>Run Int</th>
+                  <th>Walk Int</th>
+                  <th>Distance</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="logBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Confirm workout -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">CONFIRM SESSION</div>
+    <div id="modalBody"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn primary" id="modalConfirm">CONFIRM</button>
+      <button class="btn" onclick="closeModal()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let state = {
+  log: [],           // [{date, workout, runInterval, walkInterval, distance, notes, scheduled}]
+  schedule: [],      // [{date, workout}]  — rolling 28-day forward schedule
+  settings: {
+    webAppUrl: ''
+  }
+};
+
+const WORKOUTS = ['Long Run','Medium Run','Short Run','Legs','Upper 1','Upper 2'];
+const RUN_TYPES = ['Long Run','Medium Run','Short Run'];
+const STRENGTH_TYPES = ['Legs','Upper 1','Upper 2'];
+
+let selectedWorkout = null;
+let currentWeekOffset = 0;
+
+// ===== INIT =====
+function init() {
+  loadState();
+  renderToday();
+  renderScheduleWeek();
+  renderLog();
+  renderStats();
+  if (!state.schedule.length) generateSchedule();
+  renderScheduleWeek();
+}
+
+// ===== PERSISTENCE =====
+function loadState() {
+  try {
+    const s = localStorage.getItem('form_workout_state');
+    if (s) state = JSON.parse(s);
+  } catch(e) {}
+  // Load settings separately
+  const webAppUrl = localStorage.getItem('form_webapp_url') || 'https://script.google.com/macros/s/AKfycbxeGOxKsraP-HUHEr_v6vNoG0GMKYNwxLg2gr_6PytDj_3mPywA8aPv0Qavr47r0vtaCw/exec';
+  state.settings = { webAppUrl };
+  document.getElementById('webAppUrl').value = webAppUrl;
+}
+
+function saveState() {
+  const toSave = { log: state.log, schedule: state.schedule };
+  localStorage.setItem('form_workout_state', JSON.stringify(toSave));
+}
+
+function saveSettings() {
+  const webAppUrl = document.getElementById('webAppUrl').value.trim();
+  localStorage.setItem('form_webapp_url', webAppUrl);
+  state.settings = { webAppUrl };
+}
+
+// ===== DATE HELPERS =====
+function today() {
+  const d = new Date();
+  return dateStr(d);
+}
+
+function dateStr(d) {
+  return d.toISOString().slice(0,10);
+}
+
+function parseDate(s) {
+  return new Date(s + 'T00:00:00');
+}
+
+function addDays(s, n) {
+  const d = parseDate(s);
+  d.setDate(d.getDate() + n);
+  return dateStr(d);
+}
+
+function daysBetween(a, b) {
+  return Math.round((parseDate(b) - parseDate(a)) / 86400000);
+}
+
+function formatDate(s) {
+  const d = parseDate(s);
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function getWeekday(s) {
+  const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  return days[parseDate(s).getDay()];
+}
+
+// ===== RENDER TODAY =====
+function renderToday() {
+  const t = today();
+  const d = parseDate(t);
+  document.getElementById('todayDate').textContent = d.toLocaleDateString('en-GB',{day:'numeric',month:'long'});
+  document.getElementById('todayWeekday').textContent = d.toLocaleDateString('en-GB',{weekday:'long'}).toUpperCase();
+
+  const sched = getScheduledWorkout(t);
+  const box = document.getElementById('scheduledWorkoutBox');
+  const nameEl = document.getElementById('scheduledName');
+
+  if (sched) {
+    nameEl.textContent = sched.toUpperCase();
+    nameEl.className = 'sw-name ' + workoutClass(sched);
+  } else {
+    nameEl.textContent = 'REST DAY';
+    nameEl.className = 'sw-name rest';
+  }
+
+  // Show interval guidance if scheduled run
+  if (sched && RUN_TYPES.includes(sched)) {
+    showIntervalGuidance(sched);
+  } else {
+    document.getElementById('intervalDisplay').style.display = 'none';
+  }
+}
+
+function showIntervalGuidance(workoutType) {
+  const intervals = calculateNextIntervals(workoutType);
+  document.getElementById('intervalDisplay').style.display = 'block';
+  document.getElementById('intRun').textContent = intervals.run ? intervals.run.toFixed(1) + ' min' : '—';
+  document.getElementById('intWalk').textContent = intervals.walk ? intervals.walk.toFixed(1) + ' min' : '—';
+  document.getElementById('intDist').textContent = intervals.dist ? intervals.dist.toFixed(2) + ' km' : '—';
+}
+
+function calculateNextIntervals(workoutType) {
+  // Find last long run
+  const longRuns = state.log.filter(e => e.workout === 'Long Run' && e.runInterval);
+  const lastLong = longRuns[longRuns.length - 1];
+
+  if (workoutType === 'Long Run') {
+    if (!lastLong) return { run: 6, walk: 3, dist: null };
+    const nextRun = lastLong.runInterval * 1.1;
+    const nextWalk = (lastLong.walkInterval / lastLong.runInterval) * nextRun / 0.85;
+    return { run: nextRun, walk: nextWalk, dist: null };
+  }
+
+  if (workoutType === 'Short Run') {
+    const dist = lastLong ? lastLong.distance * 0.25 : null;
+    // Use similar interval ratio
+    if (!lastLong) return { run: 6, walk: 3, dist };
+    const nextRun = lastLong.runInterval * 1.1;
+    const nextWalk = (lastLong.walkInterval / lastLong.runInterval) * nextRun / 0.85;
+    return { run: nextRun, walk: nextWalk, dist };
+  }
+
+  if (workoutType === 'Medium Run') {
+    const dist = lastLong ? lastLong.distance * 0.5 : null;
+    if (!lastLong) return { run: 6, walk: 3, dist };
+    const nextRun = lastLong.runInterval * 1.1;
+    const nextWalk = (lastLong.walkInterval / lastLong.runInterval) * nextRun / 0.85;
+    return { run: nextRun, walk: nextWalk, dist };
+  }
+
+  return { run: null, walk: null, dist: null };
+}
+
+// ===== WORKOUT SELECTION =====
+function selectWorkout(btn) {
+  document.querySelectorAll('.workout-option').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedWorkout = btn.dataset.w;
+
+  const isRun = RUN_TYPES.includes(selectedWorkout);
+  document.getElementById('runFields').style.display = isRun ? 'block' : 'none';
+
+  if (isRun) showIntervalGuidance(selectedWorkout);
+
+  // Validate rules
+  const violation = checkRules(today(), selectedWorkout);
+  const alertEl = document.getElementById('ruleAlert');
+  if (violation) {
+    alertEl.textContent = '⚠ ' + violation;
+    alertEl.style.display = 'block';
+  } else {
+    alertEl.style.display = 'none';
+  }
+}
+
+// ===== RULE CHECKING =====
+function checkRules(date, workout) {
+  if (!workout) return null;
+  const logEntries = state.log.filter(e => e.date !== date);
+
+  if (RUN_TYPES.includes(workout)) {
+    // Runs must be separated by at least 2 days
+    const recentRuns = logEntries.filter(e => RUN_TYPES.includes(e.workout));
+    for (const r of recentRuns) {
+      const gap = Math.abs(daysBetween(r.date, date));
+      if (gap > 0 && gap < 2) {
+        return 'Runs must be separated by at least 2 days. Last run: ' + formatDate(r.date);
+      }
+    }
+    // After a long run, next run must be short
+    const sortedRuns = recentRuns.sort((a,b) => a.date.localeCompare(b.date));
+    const lastRun = sortedRuns[sortedRuns.length - 1];
+    if (lastRun && lastRun.workout === 'Long Run' && workout !== 'Short Run') {
+      return 'After a Long Run, next scheduled run must be a Short Run.';
+    }
+  }
+
+  if (workout === 'Legs') {
+    const yesterday = addDays(date, -1);
+    const twoDaysAgo = addDays(date, -2);
+    const prevDay = logEntries.find(e => e.date === yesterday);
+    const twoDayEntry = logEntries.find(e => e.date === twoDaysAgo);
+    // Legs must not come one day after a short or medium run
+    if (prevDay && (prevDay.workout === 'Short Run' || prevDay.workout === 'Medium Run')) {
+      return 'Legs cannot follow a Short or Medium Run day.';
+    }
+  }
+
+  // Max one workout per day — handled by replacing
+  return null;
+}
+
+// ===== LOGGING =====
+function logWorkout() {
+  if (!selectedWorkout) {
+    alert('Please select a workout type.');
+    return;
+  }
+
+  const t = today();
+  const isRun = RUN_TYPES.includes(selectedWorkout);
+  let actualRun = null, actualWalk = null, actualDist = null;
+
+  if (isRun) {
+    actualRun = parseFloat(document.getElementById('actualRun').value) || null;
+    actualWalk = parseFloat(document.getElementById('actualWalk').value) || null;
+    actualDist = parseFloat(document.getElementById('actualDist').value) || null;
+  }
+
+  const notes = document.getElementById('sessionNotes').value.trim();
+  const scheduledToday = getScheduledWorkout(t);
+  const isUnscheduled = scheduledToday !== selectedWorkout;
+
+  const entry = {
+    date: t,
+    workout: selectedWorkout,
+    runInterval: actualRun,
+    walkInterval: actualWalk,
+    distance: actualDist,
+    notes,
+    scheduled: scheduledToday || 'Rest',
+    unscheduled: isUnscheduled
+  };
+
+  // Remove any existing entry for today
+  state.log = state.log.filter(e => e.date !== t);
+  state.log.push(entry);
+  state.log.sort((a,b) => a.date.localeCompare(b.date));
+
+  // Re-generate schedule from today forward
+  generateSchedule();
+  saveState();
+  renderAll();
+  syncToSheets();
+
+  // Reset form
+  selectedWorkout = null;
+  document.querySelectorAll('.workout-option').forEach(b => b.classList.remove('selected'));
+  document.getElementById('runFields').style.display = 'none';
+  document.getElementById('sessionNotes').value = '';
+  document.getElementById('actualRun').value = '';
+  document.getElementById('actualWalk').value = '';
+  document.getElementById('actualDist').value = '';
+  document.getElementById('ruleAlert').style.display = 'none';
+}
+
+function logRest() {
+  const t = today();
+  state.log = state.log.filter(e => e.date !== t);
+  state.log.push({ date: t, workout: 'Rest', runInterval: null, walkInterval: null, distance: null, notes: '', scheduled: getScheduledWorkout(t) || 'Rest' });
+  state.log.sort((a,b) => a.date.localeCompare(b.date));
+  generateSchedule();
+  saveState();
+  renderAll();
+  syncToSheets();
+}
+
+// ===== SCHEDULE GENERATION =====
+function getScheduledWorkout(date) {
+  const s = state.schedule.find(e => e.date === date);
+  return s ? s.workout : null;
+}
+
+function generateSchedule() {
+  // Build a 28-day rolling schedule from tomorrow (or from first day with no log)
+  const t = today();
+  
+  // Get completed days
+  const completed = new Set(state.log.map(e => e.date));
+  
+  // Determine what workouts have been done and what patterns exist
+  const allDone = state.log.filter(e => e.workout !== 'Rest');
+  
+  // We'll keep past schedule entries and regenerate from today
+  const pastSchedule = state.schedule.filter(e => e.date < t);
+  
+  // Start new schedule from today
+  const newSchedule = [...pastSchedule];
+  
+  // Build context from completed workouts
+  let workoutContext = [...allDone].sort((a,b) => a.date.localeCompare(b.date));
+  
+  // Define a rotation of workouts to cycle through
+  // Base rotation: LongRun, Upper1, Legs, ShortRun, Upper2, Rest, MedRun, Upper1, Rest
+  const baseRotation = ['Long Run','Upper 1','Legs','Short Run','Upper 2','Upper 1','Medium Run'];
+  
+  // Figure out where we are in rotation
+  let lastRunType = null;
+  let runCount = 0;
+  
+  const sortedLog = [...state.log].sort((a,b) => a.date.localeCompare(b.date));
+  for (const entry of sortedLog) {
+    if (RUN_TYPES.includes(entry.workout)) {
+      lastRunType = entry.workout;
+      runCount++;
+    }
+  }
+
+  // Generate 28 days forward
+  let schedDays = [];
+  let cursor = t;
+  
+  // Seed with completed context
+  let recentDays = [];
+  const last14 = state.log.filter(e => daysBetween(e.date, t) <= 14).sort((a,b) => a.date.localeCompare(b.date));
+  for (const e of last14) {
+    recentDays.push({ date: e.date, workout: e.workout });
+  }
+  
+  for (let i = 0; i < 28; i++) {
+    const d = addDays(t, i);
+    if (completed.has(d)) {
+      const logEntry = state.log.find(e => e.date === d);
+      recentDays.push({ date: d, workout: logEntry.workout });
+      continue;
+    }
+    
+    // Try to assign a workout for this day
+    const candidate = pickWorkout(d, recentDays);
+    if (candidate) {
+      schedDays.push({ date: d, workout: candidate });
+      recentDays.push({ date: d, workout: candidate });
+    }
+  }
+  
+  // Merge: keep past + replace future
+  const future = newSchedule.filter(e => e.date >= t && !completed.has(e.date));
+  // Replace future schedule
+  state.schedule = [...pastSchedule, ...schedDays];
+}
+
+function pickWorkout(date, context) {
+  // Determine what's reasonable to assign
+  const recent = context.slice(-14); // last 14 days context
+  
+  // Last 7 days for rest rule
+  const last7 = recent.filter(e => daysBetween(e.date, date) <= 7 && daysBetween(e.date, date) > 0);
+  const restIn7 = last7.filter(e => e.workout === 'Rest' || !e.workout).length;
+  const workoutsIn7 = last7.length - restIn7;
+  
+  // Must have at least 1 rest in 7 days
+  const needsRest = workoutsIn7 >= 6;
+  if (needsRest) return null; // null = rest day
+  
+  // What runs have happened recently?
+  const sortedRuns = recent.filter(e => RUN_TYPES.includes(e.workout)).sort((a,b) => a.date.localeCompare(b.date));
+  const lastRun = sortedRuns[sortedRuns.length - 1];
+  
+  // Days since last run
+  const daysSinceRun = lastRun ? daysBetween(lastRun.date, date) : 999;
+  
+  // Day before
+  const dayBefore = context.find(e => e.date === addDays(date, -1));
+  const twoDayBefore = context.find(e => e.date === addDays(date, -2));
+  
+  // Cycle through: try to assign a balanced rotation
+  // Count recent workout types
+  const recentTypes = recent.filter(e => e.workout && e.workout !== 'Rest').map(e => e.workout);
+  const counts = {};
+  for (const w of WORKOUTS) counts[w] = recentTypes.filter(x => x===w).length;
+  
+  // Candidates
+  let candidates = [...WORKOUTS];
+  
+  // Filter by rules
+  candidates = candidates.filter(w => {
+    // Rule: runs separated by 2 days
+    if (RUN_TYPES.includes(w)) {
+      if (daysSinceRun < 2) return false;
+      // After long run, next run must be short
+      if (lastRun && lastRun.workout === 'Long Run' && w !== 'Short Run') return false;
+    }
+    // Rule: Legs not day after short/medium run
+    if (w === 'Legs') {
+      if (dayBefore && (dayBefore.workout === 'Short Run' || dayBefore.workout === 'Medium Run')) return false;
+    }
+    return true;
+  });
+  
+  if (!candidates.length) return null;
+  
+  // Prefer least-recently-done
+  // Also enforce: after Long Run -> Short Run must come before any other run
+  if (lastRun && lastRun.workout === 'Long Run' && daysSinceRun >= 2) {
+    if (candidates.includes('Short Run')) return 'Short Run';
+  }
+  
+  // If no run in a while (4+ days), prioritise runs
+  if (daysSinceRun >= 4 && candidates.some(c => RUN_TYPES.includes(c))) {
+    const runCandidates = candidates.filter(c => RUN_TYPES.includes(c));
+    return runCandidates.sort((a,b) => counts[a] - counts[b])[0];
+  }
+  
+  // Otherwise pick least done
+  candidates.sort((a,b) => counts[a] - counts[b]);
+  return candidates[0];
+}
+
+// ===== RENDER ALL =====
+function renderAll() {
+  renderToday();
+  renderScheduleWeek();
+  renderLog();
+  renderStats();
+}
+
+// ===== RENDER SCHEDULE =====
+function renderScheduleWeek() {
+  const t = today();
+  const tDate = parseDate(t);
+  
+  // Find start of week (Monday) for current week + offset
+  const dow = tDate.getDay();
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const weekStart = new Date(tDate);
+  weekStart.setDate(tDate.getDate() + mondayOffset + (currentWeekOffset * 7));
+  
+  const container = document.getElementById('scheduleWeek');
+  container.innerHTML = '';
+  
+  const days = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+  
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const ds = dateStr(d);
+    
+    const isPast = ds < t;
+    const isToday = ds === t;
+    const logEntry = state.log.find(e => e.date === ds);
+    const sched = getScheduledWorkout(ds);
+    
+    const cell = document.createElement('div');
+    cell.className = 'day-cell' + (isToday ? ' today' : '') + (isPast ? ' past' : '');
+    
+    let workoutText = '', workoutClass_ = 'rest';
+    if (logEntry) {
+      workoutText = logEntry.workout === 'Rest' ? '—' : shortName(logEntry.workout) + ' ✓';
+      workoutClass_ = logEntry.workout === 'Rest' ? 'rest' : (RUN_TYPES.includes(logEntry.workout) ? 'run' : 'strength');
+      if (logEntry.workout !== 'Rest') workoutClass_ += ' done';
+    } else if (sched) {
+      workoutText = shortName(sched);
+      workoutClass_ = RUN_TYPES.includes(sched) ? 'run' : 'strength';
+    } else {
+      workoutText = '—';
+    }
+    
+    cell.innerHTML = `
+      <div class="day-label">${days[i]}</div>
+      <div class="day-num">${d.getDate()}</div>
+      <div class="day-workout ${workoutClass_}">${workoutText}</div>
+    `;
+    container.appendChild(cell);
+  }
+  
+  // Update week label
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  document.getElementById('weekLabel').textContent = 
+    weekStart.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + ' — ' + 
+    weekEnd.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+
+function shortName(w) {
+  const map = {
+    'Long Run':'LNG RUN','Medium Run':'MED RUN','Short Run':'SHT RUN',
+    'Legs':'LEGS','Upper 1':'UPPER 1','Upper 2':'UPPER 2','Rest':'—'
+  };
+  return map[w] || w;
+}
+
+function workoutClass(w) {
+  if (RUN_TYPES.includes(w)) return 'run';
+  if (STRENGTH_TYPES.includes(w)) return 'strength';
+  return 'rest';
+}
+
+function shiftWeek(dir) {
+  currentWeekOffset += dir;
+  renderScheduleWeek();
+}
+
+// ===== RENDER LOG =====
+function renderLog() {
+  const body = document.getElementById('logBody');
+  const table = document.getElementById('logTable');
+  const empty = document.getElementById('emptyLog');
+  
+  const entries = [...state.log].filter(e => e.workout !== 'Rest' || e.notes).sort((a,b) => b.date.localeCompare(a.date));
+  
+  if (!entries.length) {
+    table.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  
+  table.style.display = 'table';
+  empty.style.display = 'none';
+  body.innerHTML = '';
+  
+  for (const e of entries) {
+    const tr = document.createElement('tr');
+    const cls = RUN_TYPES.includes(e.workout) ? 'run' : (STRENGTH_TYPES.includes(e.workout) ? 'strength' : 'rest');
+    tr.innerHTML = `
+      <td>${formatDate(e.date)}<br><span style="color:var(--muted);font-size:9px">${getWeekday(e.date)}</span></td>
+      <td><span class="badge ${cls}">${e.workout}</span>${e.unscheduled ? '<br><span style="color:var(--accent3);font-size:9px">UNSCHEDULED</span>' : ''}</td>
+      <td>${e.runInterval ? e.runInterval.toFixed(1)+'m' : '—'}</td>
+      <td>${e.walkInterval ? e.walkInterval.toFixed(1)+'m' : '—'}</td>
+      <td>${e.distance ? e.distance.toFixed(2)+' km' : '—'}</td>
+      <td style="color:var(--muted)">${e.notes || '—'}</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+// ===== RENDER STATS =====
+function renderStats() {
+  const sessions = state.log.filter(e => e.workout !== 'Rest');
+  const runs = sessions.filter(e => RUN_TYPES.includes(e.workout));
+  const totalDist = runs.reduce((s,e) => s + (e.distance||0), 0);
+  
+  // Streak
+  let streak = 0;
+  let d = today();
+  while (true) {
+    const entry = state.log.find(e => e.date === d);
+    if (entry && entry.workout !== 'Rest') { streak++; d = addDays(d,-1); }
+    else break;
+  }
+  
+  document.getElementById('statTotal').textContent = sessions.length;
+  document.getElementById('statStreak').textContent = streak;
+  document.getElementById('statDist').textContent = totalDist.toFixed(1);
+  document.getElementById('statRuns').textContent = runs.length;
+}
+
+// ===== TABS =====
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', t.textContent.toLowerCase().includes(name) || (name==='schedule' && i===0) || (name==='log' && i===1));
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ===== SETTINGS =====
+function toggleSettings() {
+  const p = document.getElementById('settingsPanel');
+  p.classList.toggle('open');
+}
+
+// ===== GOOGLE SHEETS =====
+async function syncToSheets() {
+  const { webAppUrl } = state.settings;
+  if (!webAppUrl) return;
+
+  setSyncStatus('syncing', 'SYNCING...');
+
+  try {
+    const rows = state.log.sort((a,b) => a.date.localeCompare(b.date)).map(e => [
+      e.date, e.workout,
+      e.runInterval ?? '', e.walkInterval ?? '',
+      e.distance ?? '', e.notes ?? '',
+      e.scheduled ?? '', e.unscheduled ? 'Yes' : 'No'
+    ]);
+
+    const res = await fetch(webAppUrl, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'sync', rows }),
+    });
+
+    const data = await res.json();
+    if (data.ok) setSyncStatus('ok', 'SYNCED');
+    else throw new Error(data.error || 'Unknown error');
+  } catch(e) {
+    setSyncStatus('err', 'SYNC FAILED');
+    console.error('Sheets sync error:', e);
+  }
+}
+
+async function testConnection() {
+  const { webAppUrl } = state.settings;
+  if (!webAppUrl) { alert('Please enter your Web App URL first.'); return; }
+  setSyncStatus('syncing', 'TESTING...');
+  try {
+    const res = await fetch(webAppUrl);
+    const data = await res.json();
+    if (data.ok) {
+      setSyncStatus('ok', 'CONNECTED');
+    } else {
+      throw new Error(data.error || 'Bad response');
+    }
+  } catch(e) {
+    setSyncStatus('err', 'FAILED — CHECK URL');
+    console.error('Connection test error:', e);
+  }
+}
+
+function setSyncStatus(state_, text) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'sync-dot ' + state_;
+  txt.textContent = text;
+}
+
+// ===== MODAL =====
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+// ===== MISC =====
+function clearAllData() {
+  if (!confirm('Delete ALL local workout data? This cannot be undone.')) return;
+  localStorage.removeItem('form_workout_state');
+  state.log = [];
+  state.schedule = [];
+  generateSchedule();
+  saveState();
+  renderAll();
+}
+
+// ===== BOOT =====
+init();
+</script>
+</body>
+</html>
