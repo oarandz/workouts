@@ -491,14 +491,20 @@
           <div class="sw-name rest" id="scheduledName">REST DAY</div>
         </div>
 
+        <div id="longRunNudge" style="display:none;padding:10px 12px;border-left:2px solid var(--accent);background:rgba(200,240,96,0.06);font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.5px;margin-bottom:10px;">
+          ★ YOUR FIRST RUN MUST BE A LONG RUN — short &amp; medium targets are calculated from it.
+        </div>
+
         <div class="interval-display" id="intervalDisplay" style="display:none">
-          <div class="interval-row">
-            <span>RUN INTERVAL</span>
-            <span class="val" id="intRun">—</span>
-          </div>
-          <div class="interval-row">
-            <span>WALK INTERVAL</span>
-            <span class="val" id="intWalk">—</span>
+          <div id="longRunGuidance" style="display:none">
+            <div class="interval-row">
+              <span>RUN INTERVAL</span>
+              <span class="val" id="intRun">—</span>
+            </div>
+            <div class="interval-row">
+              <span>WALK INTERVAL</span>
+              <span class="val" id="intWalk">—</span>
+            </div>
           </div>
           <div class="interval-row dist">
             <span>TARGET DIST</span>
@@ -525,17 +531,21 @@
 
         <!-- Run specific fields -->
         <div id="runFields" style="display:none">
-          <div class="panel-title">ACTUAL INTERVALS</div>
-          <div class="inline-inputs" style="margin-bottom:8px">
-            <div class="form-group">
-              <label class="form-label">Run Interval (min)</label>
-              <input type="number" id="actualRun" placeholder="6" step="0.1" min="0">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Walk Interval (min)</label>
-              <input type="number" id="actualWalk" placeholder="3" step="0.1" min="0">
+          <!-- Interval inputs: long run only -->
+          <div id="intervalInputs" style="display:none">
+            <div class="panel-title">ACTUAL INTERVALS</div>
+            <div class="inline-inputs" style="margin-bottom:8px">
+              <div class="form-group">
+                <label class="form-label">Run Interval (min)</label>
+                <input type="number" id="actualRun" placeholder="6" step="0.1" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Walk Interval (min)</label>
+                <input type="number" id="actualWalk" placeholder="3" step="0.1" min="0">
+              </div>
             </div>
           </div>
+          <!-- Distance: all run types -->
           <div class="form-group">
             <label class="form-label">Total Distance (km)</label>
             <input type="number" id="actualDist" placeholder="0.0" step="0.1" min="0">
@@ -735,26 +745,44 @@ function renderToday() {
     nameEl.className = 'sw-name rest';
   }
 
-  // Show interval guidance if scheduled run
+  // Show interval guidance panel for runs that have guidance to show
   if (sched && RUN_TYPES.includes(sched)) {
     showIntervalGuidance(sched);
   } else {
     document.getElementById('intervalDisplay').style.display = 'none';
   }
+
+  // If no long run done yet, show a banner nudge
+  const noLongRunYet = !state.log.some(e => e.workout === 'Long Run');
+  const nudge = document.getElementById('longRunNudge');
+  if (nudge) nudge.style.display = noLongRunYet ? 'block' : 'none';
 }
 
 function showIntervalGuidance(workoutType) {
   const intervals = calculateNextIntervals(workoutType);
-  document.getElementById('intervalDisplay').style.display = 'block';
+  const displayEl = document.getElementById('intervalDisplay');
+  const longGuidance = document.getElementById('longRunGuidance');
+
+  // Only show the guidance box if there's something to show
+  const hasAnything = intervals.run || intervals.dist;
+  displayEl.style.display = hasAnything ? 'block' : 'none';
+
+  // Run/walk rows: long run only
+  longGuidance.style.display = workoutType === 'Long Run' ? 'block' : 'none';
   document.getElementById('intRun').textContent = intervals.run ? intervals.run.toFixed(1) + ' min' : '—';
   document.getElementById('intWalk').textContent = intervals.walk ? intervals.walk.toFixed(1) + ' min' : '—';
+
+  // Target distance: short and medium only
   document.getElementById('intDist').textContent = intervals.dist ? intervals.dist.toFixed(2) + ' km' : '—';
 }
 
 function calculateNextIntervals(workoutType) {
-  // Find last long run
+  // Find last long run that has distance recorded
   const longRuns = state.log.filter(e => e.workout === 'Long Run' && e.runInterval);
   const lastLong = longRuns[longRuns.length - 1];
+  // Find last long run with distance (may be different if intervals not always entered)
+  const longRunsWithDist = state.log.filter(e => e.workout === 'Long Run' && e.distance);
+  const lastLongDist = longRunsWithDist[longRunsWithDist.length - 1];
 
   if (workoutType === 'Long Run') {
     if (!lastLong) return { run: 6, walk: 3, dist: null };
@@ -764,20 +792,15 @@ function calculateNextIntervals(workoutType) {
   }
 
   if (workoutType === 'Short Run') {
-    const dist = lastLong ? lastLong.distance * 0.25 : null;
-    // Use similar interval ratio
-    if (!lastLong) return { run: 6, walk: 3, dist };
-    const nextRun = lastLong.runInterval * 1.1;
-    const nextWalk = (lastLong.walkInterval / lastLong.runInterval) * nextRun / 0.85;
-    return { run: nextRun, walk: nextWalk, dist };
+    // Distance only — 25% of most recent long run distance
+    const dist = lastLongDist ? lastLongDist.distance * 0.25 : null;
+    return { run: null, walk: null, dist };
   }
 
   if (workoutType === 'Medium Run') {
-    const dist = lastLong ? lastLong.distance * 0.5 : null;
-    if (!lastLong) return { run: 6, walk: 3, dist };
-    const nextRun = lastLong.runInterval * 1.1;
-    const nextWalk = (lastLong.walkInterval / lastLong.runInterval) * nextRun / 0.85;
-    return { run: nextRun, walk: nextWalk, dist };
+    // Distance only — 50% of most recent long run distance
+    const dist = lastLongDist ? lastLongDist.distance * 0.5 : null;
+    return { run: null, walk: null, dist };
   }
 
   return { run: null, walk: null, dist: null };
@@ -790,7 +813,9 @@ function selectWorkout(btn) {
   selectedWorkout = btn.dataset.w;
 
   const isRun = RUN_TYPES.includes(selectedWorkout);
+  const isLongRun = selectedWorkout === 'Long Run';
   document.getElementById('runFields').style.display = isRun ? 'block' : 'none';
+  document.getElementById('intervalInputs').style.display = isLongRun ? 'block' : 'none';
 
   if (isRun) showIntervalGuidance(selectedWorkout);
 
@@ -809,6 +834,12 @@ function selectWorkout(btn) {
 function checkRules(date, workout) {
   if (!workout) return null;
   const logEntries = state.log.filter(e => e.date !== date);
+
+  // Block short/medium runs until a long run has been logged
+  if ((workout === 'Short Run' || workout === 'Medium Run')) {
+    const hasLongRun = logEntries.some(e => e.workout === 'Long Run');
+    if (!hasLongRun) return 'You must complete a Long Run first — it sets the baseline for all other run distances.';
+  }
 
   if (RUN_TYPES.includes(workout)) {
     // Runs must be separated by at least 2 days
@@ -851,12 +882,15 @@ function logWorkout() {
 
   const t = today();
   const isRun = RUN_TYPES.includes(selectedWorkout);
+  const isLongRun = selectedWorkout === 'Long Run';
   let actualRun = null, actualWalk = null, actualDist = null;
 
   if (isRun) {
+    actualDist = parseFloat(document.getElementById('actualDist').value) || null;
+  }
+  if (isLongRun) {
     actualRun = parseFloat(document.getElementById('actualRun').value) || null;
     actualWalk = parseFloat(document.getElementById('actualWalk').value) || null;
-    actualDist = parseFloat(document.getElementById('actualDist').value) || null;
   }
 
   const notes = document.getElementById('sessionNotes').value.trim();
@@ -889,6 +923,8 @@ function logWorkout() {
   selectedWorkout = null;
   document.querySelectorAll('.workout-option').forEach(b => b.classList.remove('selected'));
   document.getElementById('runFields').style.display = 'none';
+  document.getElementById('intervalInputs').style.display = 'none';
+  document.getElementById('intervalDisplay').style.display = 'none';
   document.getElementById('sessionNotes').value = '';
   document.getElementById('actualRun').value = '';
   document.getElementById('actualWalk').value = '';
@@ -984,6 +1020,14 @@ function generateSchedule() {
 function pickWorkout(date, context) {
   // Determine what's reasonable to assign
   const recent = context.slice(-14); // last 14 days context
+
+  // Has a long run ever been completed?
+  const allRuns = [...state.log, ...context].filter(e => RUN_TYPES.includes(e.workout));
+  const anyLongRunDone = state.log.some(e => e.workout === 'Long Run');
+
+  // If no long run has been done yet, the first scheduled run MUST be a Long Run.
+  // Block all other run types until a long run is logged.
+  const noLongRunYet = !anyLongRunDone;
   
   // Last 7 days for rest rule
   const last7 = recent.filter(e => daysBetween(e.date, date) <= 7 && daysBetween(e.date, date) > 0);
@@ -1003,10 +1047,8 @@ function pickWorkout(date, context) {
   
   // Day before
   const dayBefore = context.find(e => e.date === addDays(date, -1));
-  const twoDayBefore = context.find(e => e.date === addDays(date, -2));
-  
-  // Cycle through: try to assign a balanced rotation
-  // Count recent workout types
+
+  // Count recent workout types for balance
   const recentTypes = recent.filter(e => e.workout && e.workout !== 'Rest').map(e => e.workout);
   const counts = {};
   for (const w of WORKOUTS) counts[w] = recentTypes.filter(x => x===w).length;
@@ -1021,6 +1063,8 @@ function pickWorkout(date, context) {
       if (daysSinceRun < 2) return false;
       // After long run, next run must be short
       if (lastRun && lastRun.workout === 'Long Run' && w !== 'Short Run') return false;
+      // Before first long run: only Long Run is allowed as a run type
+      if (noLongRunYet && w !== 'Long Run') return false;
     }
     // Rule: Legs not day after short/medium run
     if (w === 'Legs') {
@@ -1031,10 +1075,14 @@ function pickWorkout(date, context) {
   
   if (!candidates.length) return null;
   
-  // Prefer least-recently-done
-  // Also enforce: after Long Run -> Short Run must come before any other run
+  // After Long Run -> Short Run must come before any other run
   if (lastRun && lastRun.workout === 'Long Run' && daysSinceRun >= 2) {
     if (candidates.includes('Short Run')) return 'Short Run';
+  }
+
+  // If no long run done yet and enough days have passed, prioritise scheduling one
+  if (noLongRunYet && daysSinceRun >= 2 && candidates.includes('Long Run')) {
+    return 'Long Run';
   }
   
   // If no run in a while (4+ days), prioritise runs
