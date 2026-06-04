@@ -686,9 +686,8 @@ function init() {
     }
   }
 
-  if (!state.schedule.length || state.schedule.filter(e => e.date >= today()).length < 7) {
-    generateSchedule();
-  }
+  // Always regenerate the forward schedule on load so fixes take effect
+  generateSchedule();
 
   renderToday();
   renderScheduleWeek();
@@ -790,7 +789,7 @@ function renderToday() {
   }
 
   // If no long run done yet, show a banner nudge
-  const noLongRunYet = !state.log.some(e => e.workout === 'Long Run');
+  const noLongRunYet = !state.log.some(e => e.workout === 'Long Run'); // logged = completed
   const nudge = document.getElementById('longRunNudge');
   if (nudge) nudge.style.display = noLongRunYet ? 'block' : 'none';
 }
@@ -872,9 +871,9 @@ function checkRules(date, workout) {
   if (!workout) return null;
   const logEntries = state.log.filter(e => e.date !== date);
 
-  // Block short/medium runs until a long run has been logged
+  // Block short/medium runs until a long run has been logged (completed, not just scheduled)
   if ((workout === 'Short Run' || workout === 'Medium Run')) {
-    const hasLongRun = logEntries.some(e => e.workout === 'Long Run');
+    const hasLongRun = state.log.some(e => e.workout === 'Long Run');
     if (!hasLongRun) return 'You must complete a Long Run first — it sets the baseline for all other run distances.';
   }
 
@@ -1025,12 +1024,11 @@ function generateSchedule() {
   let schedDays = [];
   let cursor = t;
   
-  // Seed with completed context
-  let recentDays = [];
-  const last14 = state.log.filter(e => daysBetween(e.date, t) <= 14).sort((a,b) => a.date.localeCompare(b.date));
-  for (const e of last14) {
-    recentDays.push({ date: e.date, workout: e.workout });
-  }
+  // Seed context with all previously logged entries (sorted oldest first)
+  let recentDays = state.log
+    .slice()
+    .sort((a,b) => a.date.localeCompare(b.date))
+    .map(e => ({ date: e.date, workout: e.workout }));
   
   // Preserve any pinned/seeded future entries (e.g. June 5th Long Run seed)
   const pinnedFuture = state.schedule.filter(e => e.date >= t && !completed.has(e.date));
@@ -1052,11 +1050,13 @@ function generateSchedule() {
       continue;
     }
 
-    // Try to assign a workout for this day
+    // Try to assign a workout for this day (null = rest day)
     const candidate = pickWorkout(d, recentDays);
+    const workout = candidate || 'Rest';
+    // Always push into recentDays (including rest) so the prev-6 window works correctly
+    recentDays.push({ date: d, workout });
     if (candidate) {
       schedDays.push({ date: d, workout: candidate });
-      recentDays.push({ date: d, workout: candidate });
     }
   }
 
@@ -1065,80 +1065,87 @@ function generateSchedule() {
 }
 
 function pickWorkout(date, context) {
-  // Determine what's reasonable to assign
-  const recent = context.slice(-14); // last 14 days context
+  // context is an ordered array of {date, workout} entries up to but not including `date`
 
-  // Has a long run ever been completed?
-  const allRuns = [...state.log, ...context].filter(e => RUN_TYPES.includes(e.workout));
-  const anyLongRunDone = state.log.some(e => e.workout === 'Long Run');
+  // ---- RULE: at most 6 workouts in any 7-day window (min 1 rest) ----
+  // Count scheduled workouts in the 6 days immediately before `date`
+  let workoutsInPrev6 = 0;
+  for (let i = 1; i <= 6; i++) {
+    const prev = addDays(date, -i);
+    const entry = context.find(e => e.date === prev);
+    if (entry && entry.workout && entry.workout !== 'Rest') workoutsInPrev6++;
+  }
+  // If all 6 previous days are workout days, today must rest
+  if (workoutsInPrev6 >= 6) return null;
 
-  // If no long run has been done yet, the first scheduled run MUST be a Long Run.
-  // Block all other run types until a long run is logged.
-  const noLongRunYet = !anyLongRunDone;
-  
-  // Last 7 days for rest rule
-  const last7 = recent.filter(e => daysBetween(e.date, date) <= 7 && daysBetween(e.date, date) > 0);
-  const restIn7 = last7.filter(e => e.workout === 'Rest' || !e.workout).length;
-  const workoutsIn7 = last7.length - restIn7;
-  
-  // Must have at least 1 rest in 7 days
-  const needsRest = workoutsIn7 >= 6;
-  if (needsRest) return null; // null = rest day
-  
-  // What runs have happened recently?
-  const sortedRuns = recent.filter(e => RUN_TYPES.includes(e.workout)).sort((a,b) => a.date.localeCompare(b.date));
-  const lastRun = sortedRuns[sortedRuns.length - 1];
-  
-  // Days since last run
+  // ---- Run gap: find last run in context ----
+  const runEntries = context.filter(e => RUN_TYPES.includes(e.workout))
+                            .sort((a,b) => a.date.localeCompare(b.date));
+  const lastRun = runEntries[runEntries.length - 1];
+  // daysSinceRun = positive integer = how many days ago the last run was
   const daysSinceRun = lastRun ? daysBetween(lastRun.date, date) : 999;
-  
-  // Day before
+
+  // Day immediately before
   const dayBefore = context.find(e => e.date === addDays(date, -1));
 
-  // Count recent workout types for balance
-  const recentTypes = recent.filter(e => e.workout && e.workout !== 'Rest').map(e => e.workout);
+  // No long run in context at all (neither scheduled nor logged) — must schedule one first
+  const noLongRunYet = !context.some(e => e.workout === 'Long Run');
+
+  // Count how many times each workout has appeared in context (for balance)
   const counts = {};
-  for (const w of WORKOUTS) counts[w] = recentTypes.filter(x => x===w).length;
-  
-  // Candidates
+  for (const w of WORKOUTS) {
+    counts[w] = context.filter(e => e.workout === w).length;
+  }
+
+  // ---- Build candidate list and filter by rules ----
   let candidates = [...WORKOUTS];
-  
-  // Filter by rules
+
   candidates = candidates.filter(w => {
-    // Rule: runs separated by 2 days
     if (RUN_TYPES.includes(w)) {
+      // Runs must be separated by at least 2 days
       if (daysSinceRun < 2) return false;
-      // After long run, next run must be short
+      // After a Long Run, next run must be Short Run
       if (lastRun && lastRun.workout === 'Long Run' && w !== 'Short Run') return false;
-      // Before first long run: only Long Run is allowed as a run type
+      // Before first Long Run logged, only allow Long Run to be scheduled
       if (noLongRunYet && w !== 'Long Run') return false;
     }
-    // Rule: Legs not day after short/medium run
     if (w === 'Legs') {
+      // Legs cannot come the day after a Short or Medium run
       if (dayBefore && (dayBefore.workout === 'Short Run' || dayBefore.workout === 'Medium Run')) return false;
     }
     return true;
   });
-  
+
   if (!candidates.length) return null;
-  
-  // After Long Run -> Short Run must come before any other run
+
+  // ---- Priority rules ----
+
+  // After Long Run → must do Short Run next (as soon as gap allows)
   if (lastRun && lastRun.workout === 'Long Run' && daysSinceRun >= 2) {
     if (candidates.includes('Short Run')) return 'Short Run';
   }
 
-  // If no long run done yet and enough days have passed, prioritise scheduling one
+  // No long run yet → schedule one as soon as the gap allows
   if (noLongRunYet && daysSinceRun >= 2 && candidates.includes('Long Run')) {
     return 'Long Run';
   }
-  
-  // If no run in a while (4+ days), prioritise runs
-  if (daysSinceRun >= 4 && candidates.some(c => RUN_TYPES.includes(c))) {
+
+  // Runs should come every 2-3 days — if it has been 3+ days since a run and a run is legal, prioritise it
+  if (daysSinceRun >= 3 && candidates.some(c => RUN_TYPES.includes(c))) {
     const runCandidates = candidates.filter(c => RUN_TYPES.includes(c));
+    // Pick the least-done run type
     return runCandidates.sort((a,b) => counts[a] - counts[b])[0];
   }
-  
-  // Otherwise pick least done
+
+  // Otherwise fill with the least-done workout from candidates
+  // Exclude runs if we just had one 2 days ago (let strength fill the gap day)
+  if (daysSinceRun === 2) {
+    const nonRun = candidates.filter(c => !RUN_TYPES.includes(c));
+    if (nonRun.length) {
+      return nonRun.sort((a,b) => counts[a] - counts[b])[0];
+    }
+  }
+
   candidates.sort((a,b) => counts[a] - counts[b]);
   return candidates[0];
 }
