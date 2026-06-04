@@ -1399,7 +1399,7 @@ function toggleSettings() {
 }
 
 // ===== GOOGLE SHEETS =====
-function syncToSheets() {
+async function syncToSheets() {
   const { webAppUrl } = state.settings;
   if (!webAppUrl) return;
 
@@ -1418,47 +1418,21 @@ function syncToSheets() {
 
     const payload = JSON.stringify({ action: 'sync', rows });
 
-    // Apps Script blocks CORS preflight. Workaround: submit via a hidden iframe form.
-    // The iframe catches the redirect response so the page doesn't navigate.
-    // We encode the payload as a form field so e.parameter.payload arrives in doPost.
-    let iframe = document.getElementById('_gsIframe');
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.name = '_gsIframe';
-      iframe.id = '_gsIframe';
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-    }
+    // application/x-www-form-urlencoded is a CORS "simple request" —
+    // no preflight needed, and Apps Script receives it in e.parameter.payload
+    await fetch(webAppUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'payload=' + encodeURIComponent(payload)
+    });
 
-    // Track when iframe finishes loading (= response received)
-    iframe.onload = () => {
-      setSyncStatus('ok', 'SYNCED');
-    };
-    iframe.onerror = () => {
-      setSyncStatus('err', 'SYNC FAILED');
-    };
+    // no-cors means we can't read the response — if fetch didn't throw, it got through
+    setSyncStatus('ok', 'SYNCED');
 
-    let form = document.getElementById('_gsForm');
-    if (form) form.remove();
-    form = document.createElement('form');
-    form.id = '_gsForm';
-    form.method = 'POST';
-    form.action = webAppUrl;
-    form.target = '_gsIframe';
-    form.style.display = 'none';
-
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'payload';
-    input.value = payload;
-    form.appendChild(input);
-
-    document.body.appendChild(form);
-    form.submit();
-
-  } catch(e) {
+  } catch(err) {
     setSyncStatus('err', 'SYNC FAILED');
-    console.error('Sheets sync error:', e);
+    console.error('Sheets sync error:', err);
   }
 }
 
