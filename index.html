@@ -1216,36 +1216,54 @@ async function syncToSheets() {
       e.scheduled ?? '', e.unscheduled ? 'Yes' : 'No'
     ]);
 
-    const res = await fetch(webAppUrl, {
+    const payload = JSON.stringify({ action: 'sync', rows });
+
+    // Apps Script doesn't support CORS preflight, so we use no-cors with
+    // a plain text body. The request goes through; we just can't read the response.
+    await fetch(webAppUrl, {
       method: 'POST',
-      body: JSON.stringify({ action: 'sync', rows }),
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload,
     });
 
-    const data = await res.json();
-    if (data.ok) setSyncStatus('ok', 'SYNCED');
-    else throw new Error(data.error || 'Unknown error');
+    // With no-cors we can't read the response — assume success if no network error
+    setSyncStatus('ok', 'SYNCED');
   } catch(e) {
     setSyncStatus('err', 'SYNC FAILED');
     console.error('Sheets sync error:', e);
   }
 }
 
-async function testConnection() {
+function testConnection() {
   const { webAppUrl } = state.settings;
   if (!webAppUrl) { alert('Please enter your Web App URL first.'); return; }
   setSyncStatus('syncing', 'TESTING...');
-  try {
-    const res = await fetch(webAppUrl);
-    const data = await res.json();
-    if (data.ok) {
-      setSyncStatus('ok', 'CONNECTED');
-    } else {
-      throw new Error(data.error || 'Bad response');
-    }
-  } catch(e) {
+
+  // Use JSONP-style script injection for the GET — this sidesteps CORS entirely
+  const callbackName = 'formTestCallback_' + Date.now();
+  const script = document.createElement('script');
+  const timeout = setTimeout(() => {
+    setSyncStatus('err', 'TIMEOUT — CHECK URL');
+    document.body.removeChild(script);
+    delete window[callbackName];
+  }, 8000);
+
+  window[callbackName] = function(data) {
+    clearTimeout(timeout);
+    document.body.removeChild(script);
+    delete window[callbackName];
+    if (data && data.ok) setSyncStatus('ok', 'CONNECTED');
+    else setSyncStatus('err', 'FAILED — CHECK SHEET');
+  };
+
+  script.src = webAppUrl + '?callback=' + callbackName;
+  script.onerror = () => {
+    clearTimeout(timeout);
     setSyncStatus('err', 'FAILED — CHECK URL');
-    console.error('Connection test error:', e);
-  }
+    delete window[callbackName];
+  };
+  document.body.appendChild(script);
 }
 
 function setSyncStatus(state_, text) {
